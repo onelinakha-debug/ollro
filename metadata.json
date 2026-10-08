@@ -1,0 +1,6 @@
+{
+  "name": "Olro",
+  "description": "Professional-grade real-time cryptocurrency and binary options market analysis terminal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
