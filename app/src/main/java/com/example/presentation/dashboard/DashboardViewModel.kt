@@ -23,6 +23,7 @@ class DashboardViewModel(
     val orderBook: StateFlow<OrderBook?> = marketDataManager.orderBook
     val indicators: StateFlow<TechnicalIndicators> = marketDataManager.indicatorsState
     val signal: StateFlow<MarketSignal?> = marketDataManager.signalState
+    val signalUnavailableReason: StateFlow<String?> = marketDataManager.signalUnavailableReason
     val connectionStatus: StateFlow<MarketConnectionStatus> = marketDataManager.connectionStatus
 
     fun selectSymbol(symbol: String) {

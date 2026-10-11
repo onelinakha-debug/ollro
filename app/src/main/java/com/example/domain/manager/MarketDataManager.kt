@@ -8,6 +8,7 @@ import com.example.domain.engine.SignalAggregator
 import com.example.domain.indicators.IndicatorCalculator
 import com.example.domain.model.AlertCondition
 import com.example.domain.model.Candle
+import com.example.domain.model.DataSource
 import com.example.domain.model.MarketConnectionStatus
 import com.example.domain.model.MarketSignal
 import com.example.domain.model.OrderBook
@@ -63,6 +64,13 @@ class MarketDataManager(
         const val PING_INTERVAL_MS = 30_000L // Binance 30-second PING keep-alive requirement
         const val PONG_TIMEOUT_MS = 10_000L  // Max wait for PONG response before triggering backoff
         const val STALE_THRESHOLD_MS = 10_000L
+
+        /** Candles fetched on symbol/interval change. Enough for EMA200 + MACD warm-up (Binance max is 1000). */
+        const val HISTORY_CANDLE_LIMIT = 500
+        /** In-memory candle window kept while streaming. */
+        const val MAX_CANDLES_IN_MEMORY = 600
+        /** Below this many closed candles, EMA50/MACD are not warmed up and no signal is produced. */
+        const val MIN_CANDLES_FOR_SIGNAL = 60
 
         @Volatile
         private var INSTANCE: MarketDataManager? = null
@@ -122,6 +130,13 @@ class MarketDataManager(
 
     private val _signalState = MutableStateFlow<MarketSignal?>(null)
     val signalState: StateFlow<MarketSignal?> = _signalState.asStateFlow()
+
+    /** Non-null when no signal is shown on purpose (e.g. data is simulated). The UI should display it. */
+    private val _signalUnavailableReason = MutableStateFlow<String?>(null)
+    val signalUnavailableReason: StateFlow<String?> = _signalUnavailableReason.asStateFlow()
+
+    @Volatile private var lastAnalyzedClosedTimestamp = 0L
+    @Volatile private var lastAnalyzedWasSimulated = false
 
     val connectionStatus: StateFlow<MarketConnectionStatus> = binanceRepository.connectionStatus
 
@@ -287,7 +302,9 @@ class MarketDataManager(
 
     private fun loadHistoricalAndConnect(symbol: String, interval: String) {
         scope.launch(Dispatchers.IO) {
-            val result = binanceRepository.fetchHistoricalCandles(symbol, interval, limit = 120)
+            lastAnalyzedClosedTimestamp = 0L // new symbol/interval: force a fresh analysis
+            _signalState.value = null
+            val result = binanceRepository.fetchHistoricalCandles(symbol, interval, limit = HISTORY_CANDLE_LIMIT)
             if (result is DataResult.Success) {
                 _candlesState.value = result.data
                 recalculateAnalytics(result.data)
@@ -315,7 +332,7 @@ class MarketDataManager(
                         currentList[lastIdx] = liveCandle
                     } else if (liveCandle.timestamp > lastCandle.timestamp) {
                         currentList.add(liveCandle)
-                        if (currentList.size > 200) {
+                        if (currentList.size > MAX_CANDLES_IN_MEMORY) {
                             currentList.removeAt(0)
                         }
                     }
@@ -323,8 +340,8 @@ class MarketDataManager(
                 _candlesState.value = currentList
                 recalculateAnalytics(currentList)
 
-                // Persist closed candle to Room
-                if (liveCandle.isClosed) {
+                // Persist closed candle to Room (never persist synthetic candles as if they were real)
+                if (liveCandle.isClosed && !isSimulatedData()) {
                     launch(Dispatchers.IO) {
                         binanceRepository.saveCandle(_selectedSymbol.value, _selectedInterval.value, liveCandle)
                     }
@@ -358,18 +375,44 @@ class MarketDataManager(
         }
     }
 
+    /**
+     * Indicators and the signal are computed from CLOSED candles only, and only when a new candle
+     * has closed. Using the still-forming candle made the signal "repaint" (flip back and forth
+     * mid-candle), which makes any signal impossible to evaluate or trade honestly.
+     */
     private fun recalculateAnalytics(candles: List<Candle>) {
-        if (candles.size < 15) return
-        val calculated = IndicatorCalculator.calculateAll(candles)
+        val closed = candles.filter { it.isClosed }
+        if (closed.size < MIN_CANDLES_FOR_SIGNAL) return
+
+        val lastClosedTs = closed.last().timestamp
+        val simulated = isSimulatedData()
+        if (lastClosedTs == lastAnalyzedClosedTimestamp && simulated == lastAnalyzedWasSimulated) return
+        lastAnalyzedClosedTimestamp = lastClosedTs
+        lastAnalyzedWasSimulated = simulated
+
+        val calculated = IndicatorCalculator.calculateAll(closed)
         _indicatorsState.value = calculated
 
-        val signal = SignalAggregator.aggregate(
+        if (simulated) {
+            // Never present analysis of synthetic/random candles as a trading signal.
+            _signalState.value = null
+            _signalUnavailableReason.value = "SIMULATED DATA: live market feed unavailable. Signals are disabled."
+            return
+        }
+
+        _signalUnavailableReason.value = null
+        _signalState.value = SignalAggregator.aggregate(
             symbol = _selectedSymbol.value,
-            candles = candles,
+            candles = closed,
             indicators = calculated
         )
-        _signalState.value = signal
         checkIndicatorAlerts(calculated)
+    }
+
+    /** True when the candles/stream currently feeding the analytics are synthetic, not real market data. */
+    private fun isSimulatedData(): Boolean {
+        return binanceRepository.historySource.value == DataSource.SIMULATED ||
+            binanceRepository.connectionStatus.value is MarketConnectionStatus.FallbackLive
     }
 
     private fun checkPriceAlerts(currentPrice: Double) {

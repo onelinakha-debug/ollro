@@ -476,7 +476,7 @@ fun PocketOptionScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text("CALL (HIGHER)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TerminalBullishGreen)
-                        Text("68% Consensus", fontSize = 11.sp, color = TerminalTextSecondary)
+                        Text("No signal", fontSize = 11.sp, color = TerminalTextMuted)
                     }
                 }
 
@@ -499,10 +499,20 @@ fun PocketOptionScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text("PUT (LOWER)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TerminalBearishRed)
-                        Text("32% Consensus", fontSize = 11.sp, color = TerminalTextSecondary)
+                        Text("No signal", fontSize = 11.sp, color = TerminalTextMuted)
                     }
                 }
             }
+
+            // These cards used to show hardcoded "68% / 32% Consensus" numbers that were not computed
+            // from anything. Until a validated model exists for this feed, say so plainly.
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "No validated signal for this feed. Prices here are simulated unless a live " +
+                    "session is connected, and no prediction model has been backtested for binary options yet.",
+                fontSize = 11.sp,
+                color = TerminalTextMuted
+            )
         }
     }
 

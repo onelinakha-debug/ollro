@@ -29,6 +29,7 @@ class IndicatorsTypeConverter {
                     put("macdLine", macd.macdLine)
                     put("signalLine", macd.signalLine)
                     put("histogram", macd.histogram)
+                    macd.prevHistogram?.let { put("prevHistogram", it) }
                 }
                 root.put("macd", macdObj)
             }
@@ -78,7 +79,8 @@ class IndicatorsTypeConverter {
                 MacdOutput(
                     macdLine = m.getDouble("macdLine"),
                     signalLine = m.getDouble("signalLine"),
-                    histogram = m.getDouble("histogram")
+                    histogram = m.getDouble("histogram"),
+                    prevHistogram = if (m.has("prevHistogram")) m.getDouble("prevHistogram") else null
                 )
             } else null
 
@@ -127,6 +129,7 @@ class IndicatorsTypeConverter {
                 put("macdLine", macd.macdLine)
                 put("signalLine", macd.signalLine)
                 put("histogram", macd.histogram)
+                macd.prevHistogram?.let { put("prevHistogram", it) }
             }.toString()
         } catch (e: Exception) {
             null
@@ -141,7 +144,8 @@ class IndicatorsTypeConverter {
             MacdOutput(
                 macdLine = root.getDouble("macdLine"),
                 signalLine = root.getDouble("signalLine"),
-                histogram = root.getDouble("histogram")
+                histogram = root.getDouble("histogram"),
+                prevHistogram = if (root.has("prevHistogram")) root.getDouble("prevHistogram") else null
             )
         } catch (e: Exception) {
             null

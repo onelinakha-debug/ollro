@@ -150,15 +150,12 @@ class PocketOptionClient(
                     val drift = (Random.nextDouble(-0.0004, 0.0004))
                     val newPrice = (asset.currentPrice + drift).coerceAtLeast(0.0001)
                     val priceChange = asset.priceChange24h + (drift * 10)
-                    val signal = when {
-                        drift > 0.0002 -> SignalDirection.BUY
-                        drift < -0.0002 -> SignalDirection.SELL
-                        else -> SignalDirection.NEUTRAL
-                    }
+                    // The sandbox price is a random walk, so any BUY/SELL derived from it would be noise
+                    // presented as analysis. Sandbox assets therefore never carry a directional signal.
                     val updated = asset.copy(
                         currentPrice = newPrice,
                         priceChange24h = priceChange,
-                        signal = signal
+                        signal = SignalDirection.NEUTRAL
                     )
                     if (asset.id == activeAssetId) {
                         _tickFlow.emit(OptionTick(assetId = asset.id, price = newPrice))
@@ -193,7 +190,7 @@ class PocketOptionClient(
             isOtc = true,
             currentPrice = 1.08425,
             priceChange24h = 0.35,
-            signal = SignalDirection.BUY
+            signal = SignalDirection.NEUTRAL
         ),
         BinaryOptionAsset(
             id = "GBPUSD_OTC",
@@ -213,7 +210,7 @@ class PocketOptionClient(
             isOtc = true,
             currentPrice = 96420.00,
             priceChange24h = 2.45,
-            signal = SignalDirection.STRONG_BUY
+            signal = SignalDirection.NEUTRAL
         ),
         BinaryOptionAsset(
             id = "USDJPY_OTC",
@@ -223,7 +220,7 @@ class PocketOptionClient(
             isOtc = true,
             currentPrice = 152.64,
             priceChange24h = -0.42,
-            signal = SignalDirection.SELL
+            signal = SignalDirection.NEUTRAL
         ),
         BinaryOptionAsset(
             id = "ETHUSD_OTC",
@@ -233,7 +230,7 @@ class PocketOptionClient(
             isOtc = true,
             currentPrice = 2840.50,
             priceChange24h = 1.15,
-            signal = SignalDirection.BUY
+            signal = SignalDirection.NEUTRAL
         )
     )
 }

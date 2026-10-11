@@ -97,6 +97,24 @@ Output states: `STRONG BUY`, `BUY`, `NEUTRAL`, `SELL`, `STRONG SELL`.
 
 ---
 
+## ✅ Validating the signals (backtest)
+
+The signal engine is a rule-based scorer, not a proven predictor. Before trusting it, replay history through the
+**same** indicator and signal code the app runs:
+
+```bash
+./tools/backtest/run.sh --symbols BTCUSDT,ETHUSDT --intervals 5m,15m --horizons 3,5,10 --candles 5000
+./tools/backtest/run.sh --csv data.csv --symbols BTCUSDT      # offline: timestamp,open,high,low,close,volume
+```
+
+Needs a JDK and `kotlinc`. For each signal it enters at the next candle's open, exits after N candles, and reports
+win rate with a 95% confidence interval, average return net of fees (`--cost`), profit factor, max drawdown, the
+first-half vs second-half split, the market's base rate of "up" moves, and the binary-option break-even win rate
+for the given `--payout`. Read **"NO statistically clear edge"** literally.
+
+Signal rules enforced in the app: signals use **closed candles only**, and are **disabled when the data is simulated**
+(Binance blocked / no history). The Pocket Option sandbox feed never produces BUY/SELL.
+
 ## 🧪 Testing
 
 Run JVM unit and indicator tests:
@@ -106,3 +124,5 @@ gradle :app:testDebugUnitTest
 Unit test coverage includes:
 - `IndicatorCalculatorTest.kt`: Mathematical correctness of RSI, MACD, EMA, Bollinger Bands, and Signal weights against known trends.
 - `WebSocketConnectionTest.kt`: Exponential backoff algorithm bounds and status transitions.
+- `IndicatorFixesTest.kt`: EMA seeding, MACD crossover-only-on-flip, Supertrend trend/flip behaviour.
+- `BacktestEngineTest.kt`: no look-ahead, entry/exit timing, non-overlap, costs, win-rate/drawdown maths.

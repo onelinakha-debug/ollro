@@ -45,7 +45,8 @@ import java.util.Locale
 @Composable
 fun SignalSummaryCard(
     signal: MarketSignal?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unavailableReason: String? = null
 ) {
     Column(
         modifier = modifier
@@ -84,9 +85,9 @@ fun SignalSummaryCard(
 
         if (signal == null) {
             Text(
-                text = "Calculating real-time telemetry...",
+                text = unavailableReason ?: "Calculating real-time telemetry...",
                 fontSize = 12.sp,
-                color = TerminalTextMuted
+                color = if (unavailableReason != null) TerminalWarningAmber else TerminalTextMuted
             )
             return
         }

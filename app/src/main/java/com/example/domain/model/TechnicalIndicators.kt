@@ -3,10 +3,21 @@ package com.example.domain.model
 data class MacdOutput(
     val macdLine: Double,
     val signalLine: Double,
-    val histogram: Double
+    val histogram: Double,
+    /** Histogram value of the previous candle; null when unknown (first candle / legacy data). */
+    val prevHistogram: Double? = null
 ) {
-    val isBullishCrossover: Boolean get() = macdLine > signalLine && histogram > 0
-    val isBearishCrossover: Boolean get() = macdLine < signalLine && histogram < 0
+    /**
+     * True only on the candle where the MACD line crosses ABOVE the signal line
+     * (histogram flips from <= 0 to > 0). It used to be true for every candle with a positive
+     * histogram, which made the "crossover" score fire constantly and the "expansion" branch dead.
+     */
+    val isBullishCrossover: Boolean
+        get() = prevHistogram != null && prevHistogram <= 0.0 && histogram > 0.0
+
+    /** True only on the candle where the MACD line crosses BELOW the signal line. */
+    val isBearishCrossover: Boolean
+        get() = prevHistogram != null && prevHistogram >= 0.0 && histogram < 0.0
 }
 
 data class BollingerBandsOutput(

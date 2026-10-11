@@ -69,6 +69,7 @@ fun DashboardScreen(
     val orderBook by viewModel.orderBook.collectAsState()
     val indicators by viewModel.indicators.collectAsState()
     val signal by viewModel.signal.collectAsState()
+    val signalUnavailableReason by viewModel.signalUnavailableReason.collectAsState()
     val connectionStatus by viewModel.connectionStatus.collectAsState()
 
     val availableSymbols = listOf("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "DOGEUSDT")
@@ -221,7 +222,7 @@ fun DashboardScreen(
 
         // 5. Active Signal Summary Card
         item {
-            SignalSummaryCard(signal = signal)
+            SignalSummaryCard(signal = signal, unavailableReason = signalUnavailableReason)
         }
 
         // 6. Order Book Depth Preview

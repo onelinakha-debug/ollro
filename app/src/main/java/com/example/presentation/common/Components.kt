@@ -62,7 +62,7 @@ fun ConnectionStatusBadge(
             StatusConfig(TerminalBullishGreen, "${status.latencyMs}ms LIVE", TerminalBullishGreenBg)
         }
         is MarketConnectionStatus.FallbackLive -> {
-            StatusConfig(TerminalCyan, "FALLBACK (451 GEO)", Color(0x1F00E5FF))
+            StatusConfig(TerminalWarningAmber, "SIMULATED (451 GEO)", TerminalWarningAmberBg)
         }
         is MarketConnectionStatus.Connecting -> {
             StatusConfig(TerminalCyan, "CONNECTING", Color(0x1F00E5FF))

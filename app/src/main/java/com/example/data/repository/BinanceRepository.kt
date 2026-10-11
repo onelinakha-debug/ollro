@@ -6,12 +6,15 @@ import com.example.data.local.db.CandleEntity
 import com.example.data.remote.binance.BinanceApiService
 import com.example.data.remote.binance.BinanceWebSocketManager
 import com.example.domain.model.Candle
+import com.example.domain.model.DataSource
 import com.example.domain.model.MarketConnectionStatus
 import com.example.domain.model.OrderBook
 import com.example.domain.model.Ticker24h
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 
 class BinanceRepository(
@@ -23,6 +26,10 @@ class BinanceRepository(
     val candleStream: SharedFlow<Candle> = webSocketManager.candleUpdates
     val tickerStream: SharedFlow<Ticker24h> = webSocketManager.tickerUpdates
     val depthStream: SharedFlow<OrderBook> = webSocketManager.depthUpdates
+
+    /** Provenance of the most recent [fetchHistoricalCandles] result. SIMULATED means random placeholder candles. */
+    private val _historySource = MutableStateFlow(DataSource.LIVE)
+    val historySource: StateFlow<DataSource> = _historySource.asStateFlow()
 
     fun getCachedCandlesFlow(symbol: String, interval: String): Flow<List<Candle>> {
         return candleDao.getCandlesFlow(symbol, interval).map { entities ->
@@ -66,18 +73,21 @@ class BinanceRepository(
                 candleDao.insertCandles(entities)
             }
 
+            _historySource.value = DataSource.LIVE
             DataResult.Success(candles)
         } catch (e: Exception) {
-            // Fallback to cached Room database data
+            // Fallback to cached Room database data (earlier REAL candles)
             val cached = candleDao.getCandles(symbol, interval).map { it.toDomain() }
             if (cached.isNotEmpty()) {
+                _historySource.value = DataSource.CACHED
                 DataResult.Success(cached)
             } else {
-                // Generate realistic initial historical baseline candles and cache to Room
+                // Placeholder candles so the chart is not empty. They are random, so they are flagged
+                // SIMULATED (signals get disabled) and are deliberately NOT written to the Room cache;
+                // otherwise they would later be served as "cached" real history.
+                _historySource.value = DataSource.SIMULATED
                 val basePrice = getBasePriceForSymbol(symbol)
-                val seedCandles = generateSeedCandles(basePrice, limit)
-                candleDao.insertCandles(seedCandles.map { CandleEntity.fromDomain(symbol, interval, it) })
-                DataResult.Success(seedCandles)
+                DataResult.Success(generateSeedCandles(basePrice, limit))
             }
         }
     }

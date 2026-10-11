@@ -148,17 +148,22 @@ class IndicatorCalculator(
          */
         fun calculateEMA(prices: List<Double>, period: Int): List<Double> {
             if (prices.isEmpty() || period <= 0) return emptyList()
-            val result = mutableListOf<Double>()
+            val result = ArrayList<Double>(prices.size)
             val k = 2.0 / (period + 1.0)
 
-            var prevEma = prices.first()
-            result.add(prevEma)
-
-            for (i in 1 until prices.size) {
-                val price = prices[i]
-                val currentEma = (price * k) + (prevEma * (1.0 - k))
-                result.add(currentEma)
-                prevEma = currentEma
+            // Standard seeding: the first `period` values use the running simple average, so the EMA
+            // at index (period - 1) equals the SMA of the first `period` prices. Recursion starts after.
+            // (Seeding with prices.first() leaves a long-lived bias, especially for EMA50/EMA200.)
+            var runningSum = 0.0
+            var prevEma = 0.0
+            for (i in prices.indices) {
+                if (i < period) {
+                    runningSum += prices[i]
+                    prevEma = runningSum / (i + 1)
+                } else {
+                    prevEma = (prices[i] * k) + (prevEma * (1.0 - k))
+                }
+                result.add(prevEma)
             }
             return result
         }
@@ -227,10 +232,20 @@ class IndicatorCalculator(
             val signalLine = calculateEMA(macdLine, signal)
             val result = mutableListOf<MacdOutput>()
 
+            var prevHistogram: Double? = null
             for (i in prices.indices) {
                 val m = macdLine[i]
                 val s = signalLine[i]
-                result.add(MacdOutput(macdLine = m, signalLine = s, histogram = m - s))
+                val hist = m - s
+                result.add(
+                    MacdOutput(
+                        macdLine = m,
+                        signalLine = s,
+                        histogram = hist,
+                        prevHistogram = prevHistogram
+                    )
+                )
+                prevHistogram = hist
             }
 
             return result
@@ -349,8 +364,8 @@ class IndicatorCalculator(
             val result = mutableListOf<SupertrendOutput>()
 
             var inUptrend = true
-            var prevUpperBand = 0.0
-            var prevLowerBand = 0.0
+            var finalUpper = 0.0
+            var finalLower = 0.0
 
             for (i in atrValues.indices) {
                 val candleIdx = i + offset
@@ -358,36 +373,31 @@ class IndicatorCalculator(
                 val atr = atrValues[i]
                 val hl2 = (candle.high + candle.low) / 2.0
 
-                var basicUpper = hl2 + (multiplier * atr)
-                var basicLower = hl2 - (multiplier * atr)
+                val basicUpper = hl2 + (multiplier * atr)
+                val basicLower = hl2 - (multiplier * atr)
 
-                val finalUpper = if (i > 0 && basicUpper < prevUpperBand || candles[candleIdx - 1].close > prevUpperBand) {
-                    basicUpper
+                if (i == 0) {
+                    // First usable bar: bands start at the basic bands, trend assumed up.
+                    finalUpper = basicUpper
+                    finalLower = basicLower
                 } else {
-                    min(basicUpper, prevUpperBand)
-                }
+                    val prevClose = candles[candleIdx - 1].close
+                    val prevFinalUpper = finalUpper
+                    val prevFinalLower = finalLower
 
-                val finalLower = if (i > 0 && basicLower > prevLowerBand || candles[candleIdx - 1].close < prevLowerBand) {
-                    basicLower
-                } else {
-                    max(basicLower, prevLowerBand)
-                }
+                    // Bands only tighten toward price, unless the previous close broke through them.
+                    finalUpper = if (basicUpper < prevFinalUpper || prevClose > prevFinalUpper) basicUpper else prevFinalUpper
+                    finalLower = if (basicLower > prevFinalLower || prevClose < prevFinalLower) basicLower else prevFinalLower
 
-                if (inUptrend) {
-                    if (candle.close < finalLower) {
+                    // Trend flips when the close breaks the PREVIOUS bar's opposite band.
+                    if (inUptrend && candle.close < prevFinalLower) {
                         inUptrend = false
-                    }
-                } else {
-                    if (candle.close > finalUpper) {
+                    } else if (!inUptrend && candle.close > prevFinalUpper) {
                         inUptrend = true
                     }
                 }
 
-                val supertrendValue = if (inUptrend) finalLower else finalUpper
-                result.add(SupertrendOutput(value = supertrendValue, isBullish = inUptrend))
-
-                prevUpperBand = finalUpper
-                prevLowerBand = finalLower
+                result.add(SupertrendOutput(value = if (inUptrend) finalLower else finalUpper, isBullish = inUptrend))
             }
 
             return result
