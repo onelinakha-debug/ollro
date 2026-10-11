@@ -11,16 +11,14 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * Domain layer calculator taking raw OHLCV candle data as input
- * and providing methods to compute technical indicators (RSI, MACD, Bollinger Bands, EMA, etc.).
+ * High-precision domain layer technical indicator calculator.
+ * Computes RSI (Wilder's), MACD (proper SMA-seeded EMA), Supertrend (Olivier Seban),
+ * Bollinger Bands, ATR, VWAP, and RVOL with strict warm-up validation.
  */
 class IndicatorCalculator(
     val candles: List<Candle> = emptyList()
 ) {
 
-    /**
-     * Alternative constructor taking raw primitive OHLCV collections.
-     */
     constructor(
         opens: List<Double>,
         highs: List<Double>,
@@ -44,89 +42,71 @@ class IndicatorCalculator(
 
     private val closePrices: List<Double> by lazy { candles.map { it.close } }
 
-    /**
-     * Computes Relative Strength Index (RSI) using Wilder's smoothing.
-     */
-    fun computeRSI(period: Int = 14): List<Double> {
-        return calculateRSI(candles, period)
-    }
+    fun computeRSI(period: Int = 14): List<Double> = calculateRSI(candles, period)
 
-    /**
-     * Computes Moving Average Convergence Divergence (MACD).
-     */
-    fun computeMACD(fast: Int = 12, slow: Int = 26, signal: Int = 9): List<MacdOutput> {
-        return calculateMACD(closePrices, fast, slow, signal)
-    }
+    fun computeMACD(fast: Int = 12, slow: Int = 26, signal: Int = 9): List<MacdOutput> =
+        calculateMACD(closePrices, fast, slow, signal)
 
-    /**
-     * Computes Bollinger Bands (SMA, upper band, lower band, bandwidth, %B).
-     */
-    fun computeBollingerBands(period: Int = 20, multiplier: Double = 2.0): List<BollingerBandsOutput> {
-        return calculateBollingerBands(closePrices, period, multiplier)
-    }
+    fun computeBollingerBands(period: Int = 20, multiplier: Double = 2.0): List<BollingerBandsOutput> =
+        calculateBollingerBands(closePrices, period, multiplier)
 
-    /**
-     * Computes Exponential Moving Average (EMA) for a specific period.
-     */
-    fun computeEMA(period: Int): List<Double> {
-        return calculateEMA(closePrices, period)
-    }
+    fun computeEMA(period: Int): List<Double> = calculateEMA(closePrices, period)
 
-    /**
-     * Computes Average True Range (ATR).
-     */
-    fun computeATR(period: Int = 14): List<Double> {
-        return calculateATR(candles, period)
-    }
+    fun computeATR(period: Int = 14): List<Double> = calculateATR(candles, period)
 
-    /**
-     * Computes Volume Weighted Average Price (VWAP).
-     */
-    fun computeVWAP(): Double {
-        return calculateVWAP(candles)
-    }
+    fun computeVWAP(): Double = calculateVWAP(candles)
 
-    /**
-     * Computes Relative Volume (RVOL).
-     */
-    fun computeRVOL(period: Int = 24): Double {
-        return calculateRVOL(candles, period)
-    }
+    fun computeRVOL(period: Int = 24): Double = calculateRVOL(candles, period)
 
-    /**
-     * Computes Supertrend trailing stop support & resistance bands.
-     */
-    fun computeSupertrend(period: Int = 10, multiplier: Double = 3.0): List<SupertrendOutput> {
-        return calculateSupertrend(candles, period, multiplier)
-    }
+    fun computeSupertrend(period: Int = 10, multiplier: Double = 3.0): List<SupertrendOutput> =
+        calculateSupertrend(candles, period, multiplier)
 
-    /**
-     * Computes full composite TechnicalIndicators snapshot from current OHLCV input.
-     */
-    fun computeAll(): TechnicalIndicators {
-        return calculateAll(candles)
-    }
+    fun computeAll(): TechnicalIndicators = calculateAll(candles)
 
     companion object {
+        const val MIN_WARMUP_BARS = 35 // 26 slow EMA + 9 signal EMA
+        const val RECOMMENDED_WARMUP_BARS = 50
 
         /**
-         * Calculates full composite indicators snapshot for the given candle list.
+         * Calculates full composite indicators snapshot.
+         * When [useClosedOnly] is true, strips unclosed forming candles to eliminate repainting.
          */
-        fun calculateAll(candles: List<Candle>): TechnicalIndicators {
-            if (candles.isEmpty()) return TechnicalIndicators()
+        fun calculateAll(
+            candles: List<Candle>,
+            useClosedOnly: Boolean = false
+        ): TechnicalIndicators {
+            val evalCandles = if (useClosedOnly) {
+                val closedOnly = candles.filter { it.isClosed }
+                if (closedOnly.isNotEmpty()) closedOnly else candles.dropLast(1).ifEmpty { candles }
+            } else {
+                candles
+            }
 
-            val closePrices = candles.map { it.close }
-            val rsi = calculateRSI(candles, period = 14)
+            if (evalCandles.isEmpty()) {
+                return TechnicalIndicators(
+                    isWarmedUp = false,
+                    warmupProgress = 0.0,
+                    closedBarsCount = 0,
+                    isCalculatedOnClosedOnly = useClosedOnly
+                )
+            }
+
+            val count = evalCandles.size
+            val isWarmedUp = count >= MIN_WARMUP_BARS
+            val warmupProgress = (count.toDouble() / RECOMMENDED_WARMUP_BARS).coerceIn(0.0, 1.0)
+
+            val closePrices = evalCandles.map { it.close }
+            val rsi = calculateRSI(evalCandles, period = 14)
             val macd = calculateMACD(closePrices, fast = 12, slow = 26, signal = 9)
             val bb = calculateBollingerBands(closePrices, period = 20, multiplier = 2.0)
             val ema9List = calculateEMA(closePrices, 9)
             val ema21List = calculateEMA(closePrices, 21)
             val ema50List = calculateEMA(closePrices, 50)
-            val ema200List = calculateEMA(closePrices, 200)
-            val atr = calculateATR(candles, period = 14)
-            val vwap = calculateVWAP(candles)
-            val supertrend = calculateSupertrend(candles, period = 10, multiplier = 3.0)
-            val rvol = calculateRVOL(candles, period = 24)
+            val ema200List = if (count >= 200) calculateEMA(closePrices, 200) else emptyList()
+            val atr = calculateATR(evalCandles, period = 14)
+            val vwap = calculateVWAP(evalCandles)
+            val supertrend = calculateSupertrend(evalCandles, period = 10, multiplier = 3.0)
+            val rvol = calculateRVOL(evalCandles, period = 24)
 
             return TechnicalIndicators(
                 rsi14 = rsi.lastOrNull(),
@@ -139,24 +119,45 @@ class IndicatorCalculator(
                 atr14 = atr.lastOrNull(),
                 vwap = vwap,
                 supertrend = supertrend.lastOrNull(),
-                rvol = rvol
+                rvol = rvol,
+                isWarmedUp = isWarmedUp,
+                warmupProgress = warmupProgress,
+                closedBarsCount = count,
+                isCalculatedOnClosedOnly = useClosedOnly
             )
         }
 
         /**
-         * Exponential Moving Average (EMA)
+         * Exponential Moving Average (EMA) seeded by the SMA of the first [period] bars.
+         * Eliminates startup divergence and aligns with TradingView / TA-Lib standards.
          */
         fun calculateEMA(prices: List<Double>, period: Int): List<Double> {
             if (prices.isEmpty() || period <= 0) return emptyList()
             val result = mutableListOf<Double>()
             val k = 2.0 / (period + 1.0)
 
-            var prevEma = prices.first()
-            result.add(prevEma)
+            if (prices.size < period) {
+                var running = prices.first()
+                for (price in prices) {
+                    running = (price * k) + (running * (1.0 - k))
+                    result.add(running)
+                }
+                return result
+            }
 
-            for (i in 1 until prices.size) {
-                val price = prices[i]
-                val currentEma = (price * k) + (prevEma * (1.0 - k))
+            // Seed initial period with SMA
+            var sum = 0.0
+            for (i in 0 until (period - 1)) {
+                sum += prices[i]
+                result.add(sum / (i + 1))
+            }
+            sum += prices[period - 1]
+            val smaSeed = sum / period
+            result.add(smaSeed)
+
+            var prevEma = smaSeed
+            for (i in period until prices.size) {
+                val currentEma = (prices[i] * k) + (prevEma * (1.0 - k))
                 result.add(currentEma)
                 prevEma = currentEma
             }
@@ -164,7 +165,7 @@ class IndicatorCalculator(
         }
 
         /**
-         * Relative Strength Index (RSI) with Wilder's Smoothing
+         * Relative Strength Index (RSI) using Wilder's Smoothing.
          */
         fun calculateRSI(candles: List<Candle>, period: Int = 14): List<Double> {
             if (candles.size <= period) return emptyList()
@@ -176,7 +177,6 @@ class IndicatorCalculator(
 
             var avgGain = 0.0
             var avgLoss = 0.0
-
             for (i in 0 until period) {
                 val change = changes[i]
                 if (change > 0) avgGain += change else avgLoss += abs(change)
@@ -187,7 +187,7 @@ class IndicatorCalculator(
             val rsiList = mutableListOf<Double>()
             val initialRs = if (avgLoss == 0.0) 100.0 else avgGain / avgLoss
             val initialRsi = if (avgLoss == 0.0) 100.0 else 100.0 - (100.0 / (1.0 + initialRs))
-            rsiList.add(initialRsi)
+            rsiList.add(initialRsi.coerceIn(0.0, 100.0))
 
             for (i in period until changes.size) {
                 val change = changes[i]
@@ -206,7 +206,9 @@ class IndicatorCalculator(
         }
 
         /**
-         * Moving Average Convergence Divergence (MACD)
+         * Moving Average Convergence Divergence (MACD 12, 26, 9).
+         * Properly synchronizes the fast and slow EMA series and computes the signal line
+         * with previous histogram tracking for reliable crossover detection.
          */
         fun calculateMACD(
             prices: List<Double>,
@@ -219,25 +221,29 @@ class IndicatorCalculator(
             val fastEma = calculateEMA(prices, fast)
             val slowEma = calculateEMA(prices, slow)
 
-            val macdLine = mutableListOf<Double>()
-            for (i in prices.indices) {
-                macdLine.add(fastEma[i] - slowEma[i])
-            }
-
+            val macdLine = List(prices.size) { i -> fastEma[i] - slowEma[i] }
             val signalLine = calculateEMA(macdLine, signal)
-            val result = mutableListOf<MacdOutput>()
 
+            val result = mutableListOf<MacdOutput>()
             for (i in prices.indices) {
                 val m = macdLine[i]
                 val s = signalLine[i]
-                result.add(MacdOutput(macdLine = m, signalLine = s, histogram = m - s))
+                val h = m - s
+                val prevH = if (i > 0) macdLine[i - 1] - signalLine[i - 1] else null
+                result.add(
+                    MacdOutput(
+                        macdLine = m,
+                        signalLine = s,
+                        histogram = h,
+                        previousHistogram = prevH
+                    )
+                )
             }
-
             return result
         }
 
         /**
-         * Bollinger Bands (20, 2)
+         * Bollinger Bands (SMA, upper, lower, bandwidth, %B).
          */
         fun calculateBollingerBands(
             prices: List<Double>,
@@ -273,7 +279,7 @@ class IndicatorCalculator(
         }
 
         /**
-         * Average True Range (ATR 14)
+         * Average True Range (ATR 14).
          */
         fun calculateATR(candles: List<Candle>, period: Int = 14): List<Double> {
             if (candles.size <= 1) return emptyList()
@@ -305,7 +311,7 @@ class IndicatorCalculator(
         }
 
         /**
-         * Volume Weighted Average Price (VWAP)
+         * Volume Weighted Average Price (VWAP).
          */
         fun calculateVWAP(candles: List<Candle>): Double {
             if (candles.isEmpty()) return 0.0
@@ -322,7 +328,7 @@ class IndicatorCalculator(
         }
 
         /**
-         * Relative Volume (RVOL)
+         * Relative Volume (RVOL).
          */
         fun calculateRVOL(candles: List<Candle>, period: Int = 24): Double {
             if (candles.size < 2) return 1.0
@@ -335,7 +341,8 @@ class IndicatorCalculator(
         }
 
         /**
-         * Supertrend (10, 3)
+         * Supertrend (10, 3) indicator per Olivier Seban specification.
+         * Correctly ratchets trailing stop bands and maintains trend state across bar transitions.
          */
         fun calculateSupertrend(
             candles: List<Candle>,
@@ -349,8 +356,8 @@ class IndicatorCalculator(
             val result = mutableListOf<SupertrendOutput>()
 
             var inUptrend = true
-            var prevUpperBand = 0.0
-            var prevLowerBand = 0.0
+            var prevFinalUpper = 0.0
+            var prevFinalLower = 0.0
 
             for (i in atrValues.indices) {
                 val candleIdx = i + offset
@@ -358,36 +365,53 @@ class IndicatorCalculator(
                 val atr = atrValues[i]
                 val hl2 = (candle.high + candle.low) / 2.0
 
-                var basicUpper = hl2 + (multiplier * atr)
-                var basicLower = hl2 - (multiplier * atr)
+                val basicUpper = hl2 + (multiplier * atr)
+                val basicLower = hl2 - (multiplier * atr)
 
-                val finalUpper = if (i > 0 && basicUpper < prevUpperBand || candles[candleIdx - 1].close > prevUpperBand) {
-                    basicUpper
+                val finalUpper: Double
+                val finalLower: Double
+
+                if (i == 0) {
+                    finalUpper = basicUpper
+                    finalLower = basicLower
+                    inUptrend = candle.close >= hl2
                 } else {
-                    min(basicUpper, prevUpperBand)
-                }
-
-                val finalLower = if (i > 0 && basicLower > prevLowerBand || candles[candleIdx - 1].close < prevLowerBand) {
-                    basicLower
-                } else {
-                    max(basicLower, prevLowerBand)
-                }
-
-                if (inUptrend) {
-                    if (candle.close < finalLower) {
-                        inUptrend = false
+                    val prevClose = candles[candleIdx - 1].close
+                    finalUpper = if (basicUpper < prevFinalUpper || prevClose > prevFinalUpper) {
+                        basicUpper
+                    } else {
+                        prevFinalUpper
                     }
-                } else {
-                    if (candle.close > finalUpper) {
-                        inUptrend = true
+
+                    finalLower = if (basicLower > prevFinalLower || prevClose < prevFinalLower) {
+                        basicLower
+                    } else {
+                        prevFinalLower
+                    }
+
+                    if (inUptrend) {
+                        if (candle.close < finalLower) {
+                            inUptrend = false
+                        }
+                    } else {
+                        if (candle.close > finalUpper) {
+                            inUptrend = true
+                        }
                     }
                 }
 
                 val supertrendValue = if (inUptrend) finalLower else finalUpper
-                result.add(SupertrendOutput(value = supertrendValue, isBullish = inUptrend))
+                result.add(
+                    SupertrendOutput(
+                        value = supertrendValue,
+                        isBullish = inUptrend,
+                        upperBand = finalUpper,
+                        lowerBand = finalLower
+                    )
+                )
 
-                prevUpperBand = finalUpper
-                prevLowerBand = finalLower
+                prevFinalUpper = finalUpper
+                prevFinalLower = finalLower
             }
 
             return result

@@ -93,6 +93,7 @@ fun PocketOptionScreen(
     val countdownRemaining by viewModel.countdownRemaining.collectAsState()
     val recentTicks by viewModel.recentTicks.collectAsState()
     val isTimerRunning by viewModel.isTimerRunning.collectAsState()
+    val isSimulationActive by viewModel.isSimulationActive.collectAsState()
 
     var showSessionDialog by remember { mutableStateOf(false) }
 
@@ -159,6 +160,33 @@ fun PocketOptionScreen(
                         modifier = Modifier.size(18.dp)
                     )
                 }
+            }
+        }
+
+        if (isSimulationActive) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(TerminalWarningAmber.copy(alpha = 0.15f))
+                    .border(1.dp, TerminalWarningAmber, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = "Simulated data",
+                    tint = TerminalWarningAmber,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "SIMULATED DATA (OTC SANDBOX) — Live binary feed restricted or offline.",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TerminalWarningAmber,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
 

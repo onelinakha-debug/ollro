@@ -3,10 +3,14 @@ package com.example.domain.model
 data class MacdOutput(
     val macdLine: Double,
     val signalLine: Double,
-    val histogram: Double
+    val histogram: Double,
+    val previousHistogram: Double? = null
 ) {
-    val isBullishCrossover: Boolean get() = macdLine > signalLine && histogram > 0
-    val isBearishCrossover: Boolean get() = macdLine < signalLine && histogram < 0
+    val isBullishCrossover: Boolean
+        get() = macdLine > signalLine && histogram > 0 && (previousHistogram == null || previousHistogram <= 0)
+
+    val isBearishCrossover: Boolean
+        get() = macdLine < signalLine && histogram < 0 && (previousHistogram == null || previousHistogram >= 0)
 }
 
 data class BollingerBandsOutput(
@@ -19,7 +23,9 @@ data class BollingerBandsOutput(
 
 data class SupertrendOutput(
     val value: Double,
-    val isBullish: Boolean
+    val isBullish: Boolean,
+    val upperBand: Double = value,
+    val lowerBand: Double = value
 )
 
 data class TechnicalIndicators(
@@ -33,5 +39,9 @@ data class TechnicalIndicators(
     val atr14: Double? = null,
     val vwap: Double? = null,
     val supertrend: SupertrendOutput? = null,
-    val rvol: Double? = null
+    val rvol: Double? = null,
+    val isWarmedUp: Boolean = true,
+    val warmupProgress: Double = 1.0,
+    val closedBarsCount: Int = 0,
+    val isCalculatedOnClosedOnly: Boolean = true
 )

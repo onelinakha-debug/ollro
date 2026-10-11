@@ -40,12 +40,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.presentation.common.ConnectionStatusBadge
+import com.example.presentation.common.LiveCryptoTicker
 import com.example.presentation.common.MetricPill
 import com.example.presentation.dashboard.components.OrderBookPreview
 import com.example.presentation.dashboard.components.SignalSummaryCard
 import com.example.presentation.dashboard.components.TickerCard
 import com.example.ui.theme.TerminalBackground
 import com.example.ui.theme.TerminalBullishGreen
+import androidx.compose.material.icons.filled.Warning
+import com.example.ui.theme.TerminalWarningAmber
 import com.example.ui.theme.TerminalCyan
 import com.example.ui.theme.TerminalSurface
 import com.example.ui.theme.TerminalSurfaceBorder
@@ -70,6 +73,7 @@ fun DashboardScreen(
     val indicators by viewModel.indicators.collectAsState()
     val signal by viewModel.signal.collectAsState()
     val connectionStatus by viewModel.connectionStatus.collectAsState()
+    val isSimulationActive by viewModel.isSimulationActive.collectAsState()
 
     val availableSymbols = listOf("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "DOGEUSDT")
 
@@ -150,6 +154,35 @@ fun DashboardScreen(
             }
         }
 
+        if (isSimulationActive) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(TerminalWarningAmber.copy(alpha = 0.15f))
+                        .border(1.dp, TerminalWarningAmber, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Simulated data",
+                        tint = TerminalWarningAmber,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "SIMULATED DATA (DEMO SANDBOX) — Live feed restricted or offline.",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TerminalWarningAmber,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
         // 2. Symbol Selector Chips
         item {
             LazyRow(
@@ -182,7 +215,7 @@ fun DashboardScreen(
         // 3. Main Selected Ticker Card
         item {
             currentTicker?.let { ticker ->
-                TickerCard(
+                LiveCryptoTicker(
                     ticker = ticker,
                     isSelected = true,
                     onClick = { onNavigateToChart(ticker.symbol) }
@@ -258,9 +291,10 @@ fun DashboardScreen(
         }
 
         items(topTickers.filter { it.symbol != selectedSymbol }) { ticker ->
-            TickerCard(
+            LiveCryptoTicker(
                 ticker = ticker,
                 isSelected = false,
+                showRangeBar = true,
                 onClick = {
                     viewModel.selectSymbol(ticker.symbol)
                     onNavigateToChart(ticker.symbol)

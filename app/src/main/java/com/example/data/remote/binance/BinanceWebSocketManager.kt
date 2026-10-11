@@ -65,6 +65,9 @@ class BinanceWebSocketManager(
     private val _depthUpdates = MutableSharedFlow<OrderBook>(replay = 1)
     val depthUpdates: SharedFlow<OrderBook> = _depthUpdates.asSharedFlow()
 
+    private val _isSimulationActive = MutableStateFlow(false)
+    val isSimulationActive: StateFlow<Boolean> = _isSimulationActive.asStateFlow()
+
     private var reconnectAttempt = 0
     private var reconnectJob: Job? = null
     private var staleCheckJob: Job? = null
@@ -104,6 +107,7 @@ class BinanceWebSocketManager(
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 fallbackSimulationJob?.cancel()
+                _isSimulationActive.value = false
                 reconnectAttempt = 0
                 val latency = (System.currentTimeMillis() - connectionStartTime).coerceAtLeast(12L)
                 lastMessageTimestamp.set(System.currentTimeMillis())
@@ -293,6 +297,7 @@ class BinanceWebSocketManager(
      */
     private fun startFallbackSimulation() {
         if (fallbackSimulationJob?.isActive == true) return
+        _isSimulationActive.value = true
 
         fallbackSimulationJob = scope.launch {
             val basePrice = getBasePriceForSymbol(activeSymbol)

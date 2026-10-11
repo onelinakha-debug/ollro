@@ -24,6 +24,7 @@ class PocketOptionViewModel(
 ) : ViewModel() {
 
     val connectionStatus: StateFlow<MarketConnectionStatus> = repository.connectionStatus
+    val isSimulationActive: StateFlow<Boolean> = repository.isSimulationActive
     val sessionState: StateFlow<PocketOptionSession> = repository.sessionState
     val assets: StateFlow<List<BinaryOptionAsset>> = repository.assets
 

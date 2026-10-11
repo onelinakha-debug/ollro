@@ -28,6 +28,7 @@ class ChartViewModel(
     val indicators: StateFlow<TechnicalIndicators> = marketDataManager.indicatorsState
     val signal: StateFlow<MarketSignal?> = marketDataManager.signalState
     val connectionStatus: StateFlow<MarketConnectionStatus> = marketDataManager.connectionStatus
+    val isSimulationActive: StateFlow<Boolean> = marketDataManager.isSimulationActive
 
     private val _showRsi = MutableStateFlow(true)
     val showRsi: StateFlow<Boolean> = _showRsi.asStateFlow()

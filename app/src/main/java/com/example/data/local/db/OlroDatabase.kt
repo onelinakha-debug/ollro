@@ -7,11 +7,18 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.data.local.dao.CandleDao
 import com.example.data.local.dao.HoldingDao
+import com.example.data.local.dao.JournalDao
 import com.example.data.local.dao.NewsArticleDao
 
 @Database(
-    entities = [CandleEntity::class, AlertEntity::class, HoldingEntity::class, NewsArticleEntity::class],
-    version = 4,
+    entities = [
+        CandleEntity::class,
+        AlertEntity::class,
+        HoldingEntity::class,
+        NewsArticleEntity::class,
+        JournalEntryEntity::class
+    ],
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(IndicatorsTypeConverter::class)
@@ -20,6 +27,7 @@ abstract class OlroDatabase : RoomDatabase() {
     abstract fun alertDao(): AlertDao
     abstract fun holdingDao(): HoldingDao
     abstract fun newsArticleDao(): NewsArticleDao
+    abstract fun journalDao(): JournalDao
 
     companion object {
         @Volatile

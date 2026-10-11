@@ -28,6 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.Candle
+import com.example.presentation.chart.components.BacktestDialog
 import com.example.presentation.chart.components.CandleChart
 import com.example.presentation.chart.components.MacdPane
 import com.example.presentation.chart.components.RsiPane
@@ -79,6 +83,7 @@ fun ChartScreen(
 
     val intervals = listOf("1m", "5m", "15m", "1h", "4h", "1D")
     val displayCandle = hoveredCandle ?: candles.lastOrNull()
+    var showBacktestDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -211,6 +216,23 @@ fun ChartScreen(
                         color = if (showMacd) TerminalCyan else TerminalTextMuted
                     )
                 }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(TerminalCyan.copy(alpha = 0.2f))
+                        .border(1.dp, TerminalCyan, RoundedCornerShape(6.dp))
+                        .clickable { showBacktestDialog = true }
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                        .testTag("run_backtest_button")
+                ) {
+                    Text(
+                        text = "BACKTEST",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TerminalCyan
+                    )
+                }
             }
         }
 
@@ -336,5 +358,14 @@ fun ChartScreen(
                 SignalBadge(direction = sig.direction, compositeScore = sig.compositeScore)
             }
         }
+    }
+
+    if (showBacktestDialog) {
+        BacktestDialog(
+            symbol = selectedSymbol,
+            candles = candles,
+            currentTimeframe = selectedInterval,
+            onDismiss = { showBacktestDialog = false }
+        )
     }
 }

@@ -14,6 +14,7 @@ class PocketOptionRepository(
     private val sessionManager: SessionManager
 ) {
     val connectionStatus: StateFlow<MarketConnectionStatus> = client.connectionStatus
+    val isSimulationActive: StateFlow<Boolean> = client.isSimulationActive
     val sessionState: StateFlow<PocketOptionSession> = sessionManager.sessionState
     val assets: StateFlow<List<BinaryOptionAsset>> = client.assetsFlow
     val tickStream: SharedFlow<OptionTick> = client.tickFlow

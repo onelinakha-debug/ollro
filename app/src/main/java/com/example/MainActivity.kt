@@ -42,6 +42,8 @@ import com.example.presentation.chart.ChartScreen
 import com.example.presentation.chart.ChartViewModel
 import com.example.presentation.dashboard.DashboardScreen
 import com.example.presentation.dashboard.DashboardViewModel
+import com.example.presentation.journal.JournalScreen
+import com.example.presentation.journal.JournalViewModel
 import com.example.presentation.holdings.HoldingsDialog
 import com.example.presentation.holdings.HoldingsViewModel
 import com.example.presentation.navigation.OlroScreen
@@ -101,6 +103,10 @@ class MainActivity : ComponentActivity() {
 
                 val newsViewModel: NewsViewModel = viewModel {
                     NewsViewModel(container.newsRepository)
+                }
+
+                val journalViewModel: JournalViewModel = viewModel {
+                    JournalViewModel(container.journalRepository, container.geminiTradeExplainer)
                 }
 
                 // Listen for alert triggers
@@ -181,6 +187,10 @@ class MainActivity : ComponentActivity() {
                             OlroScreen.CHART -> ChartScreen(
                                 viewModel = chartViewModel,
                                 onBack = { currentScreen = OlroScreen.DASHBOARD }
+                            )
+
+                            OlroScreen.JOURNAL -> JournalScreen(
+                                viewModel = journalViewModel
                             )
 
                             OlroScreen.NEWS -> NewsScreen(

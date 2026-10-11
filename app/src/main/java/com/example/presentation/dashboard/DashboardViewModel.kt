@@ -24,6 +24,7 @@ class DashboardViewModel(
     val indicators: StateFlow<TechnicalIndicators> = marketDataManager.indicatorsState
     val signal: StateFlow<MarketSignal?> = marketDataManager.signalState
     val connectionStatus: StateFlow<MarketConnectionStatus> = marketDataManager.connectionStatus
+    val isSimulationActive: StateFlow<Boolean> = marketDataManager.isSimulationActive
 
     fun selectSymbol(symbol: String) {
         marketDataManager.selectSymbolAndInterval(symbol)

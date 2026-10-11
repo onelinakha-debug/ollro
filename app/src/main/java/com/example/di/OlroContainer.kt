@@ -19,6 +19,9 @@ import com.example.domain.manager.MarketDataManager
 import com.example.domain.repository.CandleRepository
 import com.example.domain.repository.HoldingRepository
 import com.example.domain.repository.NewsRepository
+import com.example.data.remote.gemini.GeminiTradeExplainer
+import com.example.data.repository.JournalRepositoryImpl
+import com.example.domain.repository.JournalRepository
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import retrofit2.Retrofit
@@ -83,6 +86,18 @@ class OlroContainer(private val context: Context) {
     val holdingRepository: HoldingRepository by lazy {
         HoldingRepositoryImpl(
             holdingDao = database.holdingDao()
+        )
+    }
+
+    val journalRepository: JournalRepository by lazy {
+        JournalRepositoryImpl(
+            journalDao = database.journalDao()
+        )
+    }
+
+    val geminiTradeExplainer: GeminiTradeExplainer by lazy {
+        GeminiTradeExplainer(
+            okHttpClient = okHttpClientProvider.restClient
         )
     }
 

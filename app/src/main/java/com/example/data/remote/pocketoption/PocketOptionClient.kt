@@ -53,6 +53,9 @@ class PocketOptionClient(
     private val _assetsFlow = MutableStateFlow<List<BinaryOptionAsset>>(getInitialAssets())
     val assetsFlow: StateFlow<List<BinaryOptionAsset>> = _assetsFlow.asStateFlow()
 
+    private val _isSimulationActive = MutableStateFlow(false)
+    val isSimulationActive: StateFlow<Boolean> = _isSimulationActive.asStateFlow()
+
     private var activeAssetId = "EURUSD_OTC"
 
     fun selectAsset(assetId: String) {
@@ -80,6 +83,7 @@ class PocketOptionClient(
 
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                _isSimulationActive.value = false
                 _connectionStatus.value = MarketConnectionStatus.Connected(latencyMs = 38L)
                 Log.i(TAG, "Pocket Option WebSocket connected")
                 // Socket.IO Handshake
@@ -140,6 +144,7 @@ class PocketOptionClient(
      */
     private fun startSandboxSimulation() {
         if (simulationJob?.isActive == true) return
+        _isSimulationActive.value = true
         _connectionStatus.value = MarketConnectionStatus.Connected(latencyMs = 28L)
 
         simulationJob = scope.launch {

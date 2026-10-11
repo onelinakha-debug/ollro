@@ -1,6 +1,7 @@
 package com.example.presentation.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CandlestickChart
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Newspaper
@@ -15,6 +16,7 @@ enum class OlroScreen(
 ) {
     DASHBOARD("dashboard", "Terminal", Icons.Default.Dashboard),
     CHART("chart", "Charts", Icons.Default.CandlestickChart),
+    JOURNAL("journal", "Journal", Icons.AutoMirrored.Filled.MenuBook),
     NEWS("news", "News", Icons.Default.Newspaper),
     POCKET_OPTION("pocket_option", "Binary OTC", Icons.Default.Speed),
     SETTINGS("settings", "Security", Icons.Default.Settings)

@@ -26,5 +26,8 @@ data class MarketSignal(
     val confidencePercent: Int,
     val summary: String,
     val contributions: List<IndicatorContribution>,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val forecast: ExplicitForecast? = null,
+    val isClosedCandleOnly: Boolean = true,
+    val isWarmedUp: Boolean = true
 )

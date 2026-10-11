@@ -20,6 +20,7 @@ class BinanceRepository(
     private val webSocketManager: BinanceWebSocketManager
 ) {
     val connectionStatus: StateFlow<MarketConnectionStatus> = webSocketManager.connectionStatus
+    val isSimulationActive: StateFlow<Boolean> = webSocketManager.isSimulationActive
     val candleStream: SharedFlow<Candle> = webSocketManager.candleUpdates
     val tickerStream: SharedFlow<Ticker24h> = webSocketManager.tickerUpdates
     val depthStream: SharedFlow<OrderBook> = webSocketManager.depthUpdates

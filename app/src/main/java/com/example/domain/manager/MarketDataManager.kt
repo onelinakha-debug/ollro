@@ -124,6 +124,7 @@ class MarketDataManager(
     val signalState: StateFlow<MarketSignal?> = _signalState.asStateFlow()
 
     val connectionStatus: StateFlow<MarketConnectionStatus> = binanceRepository.connectionStatus
+    val isSimulationActive: StateFlow<Boolean> = binanceRepository.isSimulationActive
 
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError.asStateFlow()
@@ -321,7 +322,10 @@ class MarketDataManager(
                     }
                 }
                 _candlesState.value = currentList
-                recalculateAnalytics(currentList)
+                // To eliminate repainting, only recalculate indicators and signals when a candle closes
+                if (liveCandle.isClosed || _signalState.value == null) {
+                    recalculateAnalytics(currentList)
+                }
 
                 // Persist closed candle to Room
                 if (liveCandle.isClosed) {
@@ -353,20 +357,28 @@ class MarketDataManager(
                     _orderBook.value = book
                     _depthStream.emit(book)
                     _marketDataStream.emit(MarketDataEvent.DepthUpdate(book))
+                    // Refresh forecast with updated depth imbalance
+                    if (_candlesState.value.isNotEmpty()) {
+                        recalculateAnalytics(_candlesState.value)
+                    }
                 }
             }
         }
     }
 
     private fun recalculateAnalytics(candles: List<Candle>) {
-        if (candles.size < 15) return
-        val calculated = IndicatorCalculator.calculateAll(candles)
+        val closedCandles = candles.filter { it.isClosed }
+        val evalCandles = if (closedCandles.isNotEmpty()) closedCandles else candles.dropLast(1).ifEmpty { candles }
+        if (evalCandles.size < 15) return
+
+        val calculated = IndicatorCalculator.calculateAll(evalCandles, useClosedOnly = true)
         _indicatorsState.value = calculated
 
         val signal = SignalAggregator.aggregate(
             symbol = _selectedSymbol.value,
-            candles = candles,
-            indicators = calculated
+            candles = evalCandles,
+            indicators = calculated,
+            orderBook = _orderBook.value
         )
         _signalState.value = signal
         checkIndicatorAlerts(calculated)
